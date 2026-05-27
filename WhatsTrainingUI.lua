@@ -10,6 +10,7 @@ local BOOKTYPE_SPELL = BOOKTYPE_SPELL
 local MAX_ROWS = 22
 local ROW_HEIGHT = 14
 local SKILL_LINE_TAB = MAX_SKILLLINE_TABS - 1
+local ROW_RIGHT_PADDING = 12
 local HIGHLIGHT_TEXTURE_FILEID = wt.GetTexture(
                                      "Interface\\AddOns\\WhatsTraining\\highlight")
 local LEFT_BG_TEXTURE_FILEID = wt.GetTexture(
@@ -404,7 +405,7 @@ function wt.CreateFrame()
         else
             row:SetPoint("TOPLEFT", rows[i - 1], "BOTTOMLEFT", 0, -2)
         end
-        row:SetPoint("RIGHT", scrollBar)
+        row:SetPoint("RIGHT", scrollBar, "LEFT", -ROW_RIGHT_PADDING, 0)
 
         rawset(rows, i, row)
     end
