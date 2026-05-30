@@ -11,6 +11,11 @@ local MAX_ROWS = 22
 local ROW_HEIGHT = 14
 local SKILL_LINE_TAB = MAX_SKILLLINE_TABS - 1
 local ROW_RIGHT_PADDING = 12
+local WT_SCROLLBAR_X = -43
+local WT_SCROLLBAR_TOP = -75
+local WT_SCROLLBAR_BOTTOM = 81
+local WT_SCROLLBAR_BUTTON_GAP = 0
+local WT_SCROLLBAR_WIDTH = 16
 local HIGHLIGHT_TEXTURE_FILEID = wt.GetTexture(
                                      "Interface\\AddOns\\WhatsTraining\\highlight")
 local LEFT_BG_TEXTURE_FILEID = wt.GetTexture(
@@ -152,6 +157,19 @@ end
 local hasFrameShown = false
 function wt.CreateFrame()
     local mainFrame = CreateFrame("Frame", "WhatsTrainingFrame", SpellBookFrame)
+    local lastNativeSkillLine = 1
+
+    local function isWhatsTrainingSkillLine(skillLine)
+        return skillLine == SKILL_LINE_TAB
+    end
+
+    local function rememberNativeSkillLine(skillLine)
+        skillLine = skillLine or SpellBookFrame.selectedSkillLine
+        if skillLine and skillLine > 0 and not isWhatsTrainingSkillLine(skillLine) then
+            lastNativeSkillLine = skillLine
+        end
+    end
+
     mainFrame:SetPoint("TOPLEFT", SpellBookFrame, "TOPLEFT", 0, 0)
     mainFrame:SetPoint("BOTTOMRIGHT", SpellBookFrame, "BOTTOMRIGHT", 0, 0)
     mainFrame:SetFrameStrata("HIGH")
@@ -218,22 +236,30 @@ function wt.CreateFrame()
     	right:SetPoint("TOPRIGHT", mainFrame, 0, 8)
     end
 
-    -- Fix for Season of Discovery's Shaman 'Way of the Earth' rune
-    -- When this rune is engraved, it constantly causes a `SPELLS_CHANGED` event
-    -- That event will keep switching the tab back to the first non-general tab when fired
-    local deferredPriorTabSelection = SpellBookFrame.selectedSkillLine
+    -- TBC 2.4.3 does not need the SoD/Classic SPELLS_CHANGED tab-restoring hack.
+    rememberNativeSkillLine(SpellBookFrame.selectedSkillLine)
+
+    SpellBookFrame:HookScript("OnHide", function()
+        if isWhatsTrainingSkillLine(SpellBookFrame.selectedSkillLine) then
+            SpellBookFrame.selectedSkillLine = lastNativeSkillLine or 1
+        end
+        local skillLineTab = _G["SpellBookSkillLineTab" .. SKILL_LINE_TAB]
+        if skillLineTab then
+            skillLineTab:SetChecked(false)
+        end
+        mainFrame:Hide()
+    end)
+
     SpellBookFrame:HookScript("OnEvent", function(self, event)
-        if event == "SPELLS_CHANGED"
-            and deferredPriorTabSelection == SKILL_LINE_TAB 
-            and SpellBookFrame.selectedSkillLine ~= SKILL_LINE_TAB 
-        then
-            SpellBookFrame.selectedSkillLine = SKILL_LINE_TAB
-            if SpellBookFrame:IsVisible() then
-                wt.RefreshSpellBookFrame()
-            end
+        if event == "SPELLS_CHANGED" and SpellBookFrame.bookType == BOOKTYPE_SPELL then
+            rememberNativeSkillLine()
         end
     end)
     function wt.Open()
+        if SpellBookFrame.bookType == BOOKTYPE_SPELL then
+            rememberNativeSkillLine()
+        end
+        SpellBookFrame.bookType = BOOKTYPE_SPELL
         SpellBookFrame.selectedSkillLine = SKILL_LINE_TAB
         if SpellBookFrame:IsVisible() then
             wt.RefreshSpellBookFrame()
@@ -250,7 +276,9 @@ function wt.CreateFrame()
         skillLineTab:SetNormalTexture(TAB_TEXTURE_FILEID)
         skillLineTab.tooltip = wt.L.TAB_TEXT
         skillLineTab:Show()
-        if SpellBookFrame.selectedSkillLine == SKILL_LINE_TAB then
+        local isAddonTabSelected = SpellBookFrame.bookType == BOOKTYPE_SPELL
+            and isWhatsTrainingSkillLine(SpellBookFrame.selectedSkillLine)
+        if isAddonTabSelected then
             skillLineTab:SetChecked(true)
             mainFrame:Show()
             if hasNewSpellbook then
@@ -263,6 +291,9 @@ function wt.CreateFrame()
         else
             skillLineTab:SetChecked(false)
             mainFrame:Hide()
+            if SpellBookFrame.bookType == BOOKTYPE_SPELL then
+                rememberNativeSkillLine()
+            end
             local _, class = UnitClass("player")
             if not hasNewSpellbook and ShowAllSpellRanksCheckbox and class ~= "ROGUE" and class ~= "WARRIOR" then
                 ShowAllSpellRanksCheckbox:Show()
@@ -276,15 +307,17 @@ function wt.CreateFrame()
     end
 
     local function onSpellBookUpdate()
+        if SpellBookFrame.bookType == BOOKTYPE_SPELL then
+            rememberNativeSkillLine()
+        end
         updateSkillLineTabs()
         if SpellBookFrame.bookType ~= BOOKTYPE_SPELL then
             mainFrame:Hide()
-        elseif SpellBookFrame.selectedSkillLine == SKILL_LINE_TAB then
+        elseif isWhatsTrainingSkillLine(SpellBookFrame.selectedSkillLine) then
             mainFrame:Show()
+        else
+            mainFrame:Hide()
         end
-        wt.RunNextFrame(function()
-            deferredPriorTabSelection = SpellBookFrame.selectedSkillLine
-        end)
     end
     if SpellBookFrame.Update then
         hooksecurefunc(SpellBookFrame, "Update", onSpellBookUpdate)
@@ -294,9 +327,7 @@ function wt.CreateFrame()
 
     local scrollBar = CreateFrame("Slider", "$parentScrollBar", mainFrame,
                                   "UIPanelScrollBarTemplate")
-    scrollBar:SetPoint("TOPRIGHT", mainFrame, "TOPRIGHT", -43, -75)
-    scrollBar:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", -43, 81)
-    scrollBar:SetWidth(16)
+    scrollBar:SetWidth(WT_SCROLLBAR_WIDTH)
     scrollBar:SetMinMaxValues(0, 0)
     scrollBar:SetValueStep(1)
     scrollBar:SetValue(0)
@@ -308,12 +339,30 @@ function wt.CreateFrame()
         end
     end)
     local upButton = _G[scrollBar:GetName() .. "ScrollUpButton"]
+    local downButton = _G[scrollBar:GetName() .. "ScrollDownButton"]
+    if upButton and downButton then
+        local upButtonHeight = upButton:GetHeight() or 16
+        local downButtonHeight = downButton:GetHeight() or 16
+        upButton:ClearAllPoints()
+        upButton:SetPoint("TOPRIGHT", mainFrame, "TOPRIGHT", WT_SCROLLBAR_X, WT_SCROLLBAR_TOP)
+        downButton:ClearAllPoints()
+        downButton:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", WT_SCROLLBAR_X,
+                            WT_SCROLLBAR_BOTTOM)
+        scrollBar:ClearAllPoints()
+        scrollBar:SetPoint("TOPRIGHT", mainFrame, "TOPRIGHT", WT_SCROLLBAR_X,
+                           WT_SCROLLBAR_TOP - upButtonHeight - WT_SCROLLBAR_BUTTON_GAP)
+        scrollBar:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", WT_SCROLLBAR_X,
+                           WT_SCROLLBAR_BOTTOM + downButtonHeight + WT_SCROLLBAR_BUTTON_GAP)
+    else
+        scrollBar:SetPoint("TOPRIGHT", mainFrame, "TOPRIGHT", WT_SCROLLBAR_X, WT_SCROLLBAR_TOP)
+        scrollBar:SetPoint("BOTTOMRIGHT", mainFrame, "BOTTOMRIGHT", WT_SCROLLBAR_X,
+                           WT_SCROLLBAR_BOTTOM)
+    end
     if upButton then
         upButton:SetScript("OnClick", function()
             scrollBar:SetValue(math.max(0, (mainFrame.scrollOffset or 0) - 1))
         end)
     end
-    local downButton = _G[scrollBar:GetName() .. "ScrollDownButton"]
     if downButton then
         downButton:SetScript("OnClick", function()
             local maxOffset = math.max(0, #wt.data - MAX_ROWS)
