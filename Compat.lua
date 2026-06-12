@@ -226,7 +226,7 @@ local function buildKnownSpellCache(bookType)
         end
 
         cache[spellKey(name, rank)] = true
-        cache[spellKey(name, "")] = true
+        --cache[spellKey(name, "")] = true
         index = index + 1
     end
 
@@ -262,7 +262,7 @@ function wt.IsSpellKnown(spellId, isPetSpell)
     end
 
     knownSpellCache = knownSpellCache or buildKnownSpellCache(BOOKTYPE_SPELL_LOCAL)
-    return knownSpellCache[spellKey(name, rank)] or knownSpellCache[spellKey(name, "")]
+    return knownSpellCache[spellKey(name, rank)] or false --knownSpellCache[spellKey(name, "")]
 end
 
 function wt.GetMerchantItemID(index)
