@@ -80,6 +80,16 @@ function wt.IsAddOnLoaded(name)
     return IsAddOnLoaded(name)
 end
 
+function wt.HasActivePet()
+    if IsPetActive then
+        return IsPetActive()
+    end
+
+    -- IsPetActive does not exist on the legacy TBC 2.4.3 client.
+    local hasPet = UnitExists("pet")
+    return hasPet == 1 or hasPet == true
+end
+
 function wt.PlayClickSound()
     if SOUNDKIT and SOUNDKIT.U_CHAT_SCROLL_BUTTON then
         PlaySound(SOUNDKIT.U_CHAT_SCROLL_BUTTON)

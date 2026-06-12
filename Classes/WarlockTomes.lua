@@ -66,7 +66,7 @@ end
 
 local DEMON = LCT["Demon"]
 local function currentEnglishPet()
-    if not IsPetActive() then return nil end
+    if not wt.HasActivePet() then return nil end
     if UnitCreatureType("pet") ~= DEMON then return nil end
     local family = families[UnitCreatureFamily("pet")]
     -- LCT does not have Incubus, so assume any nil for family is incubus
