@@ -32,23 +32,41 @@ function wt.RunNextFrame(callback)
     nextFrameRunner:SetScript("OnUpdate", flushNextFrameQueue)
 end
 
+-- One reusable timer frame: never allocate a frame per retry.
+local pendingTimers = {}
+local timerRunner = CreateFrame("Frame")
+timerRunner:Hide()
+local function updateTimers(self, elapsed)
+    self = self or this
+    elapsed = elapsed or arg1 or 0
+    local ready = {}
+    for i = #pendingTimers, 1, -1 do
+        local timer = pendingTimers[i]
+        timer.remaining = timer.remaining - elapsed
+        if timer.remaining <= 0 then
+            tinsert(ready, 1, timer.callback)
+            table.remove(pendingTimers, i)
+        end
+    end
+    -- Remove callbacks before invoking them, including when one fails.
+    for _, callback in ipairs(ready) do
+        local ok, err = pcall(callback)
+        if not ok then geterrorhandler()(err) end
+    end
+    if #pendingTimers == 0 then
+        self:SetScript("OnUpdate", nil)
+        self:Hide()
+    end
+end
+
 function wt.After(delay, callback)
     if C_Timer and C_Timer.After then
         C_Timer.After(delay, callback)
         return
     end
-
-    local timer = CreateFrame("Frame")
-    local remaining = delay
-    timer:SetScript("OnUpdate", function(self, elapsed)
-        remaining = remaining - elapsed
-        if remaining > 0 then
-            return
-        end
-
-        self:SetScript("OnUpdate", nil)
-        callback()
-    end)
+    tinsert(pendingTimers, { remaining = math.max(0, tonumber(delay) or 0), callback = callback })
+    timerRunner:SetScript("OnUpdate", updateTimers)
+    timerRunner:Show()
 end
 
 function wt.GetTexture(path)

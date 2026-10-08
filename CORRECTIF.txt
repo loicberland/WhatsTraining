@@ -1,0 +1,25 @@
+WhatsTraining 9.1.0-tbc-cachefix1 - client WoW 2.4.3
+Base du depot : 1aea2fdcc2d58737d8ff7fc9cd3825cd62d7e002 (master).
+
+Installation : fermer completement WoW. Sauvegarder le dossier
+Interface/AddOns/WhatsTraining, puis le remplacer par ce dossier.
+Conserver WTF pour garder les reglages.
+Aucun changement serveur ou base de donnees, aucun push.
+
+Correction : un objet absent du cache entrainait un nouvel essai toutes
+les 0,2 secondes sans fin. Le minuteur creait un nouveau Frame par essai.
+Les grimoires du demoniste passent par ce traitement au chargement.
+
+Desormais : un seul gestionnaire de minuteurs reutilise, six tentatives
+maximum par objet a une seconde d'intervalle, demandes simultanees regroupees,
+une infobulle reutilisee pour demander les objets au serveur.
+Les objets non resolus restent absents de la liste ; une visite chez un
+marchand relance les recherches de maniere bornee. Un rechargement les
+relance egalement. Les recalculs consecutifs de la liste sont regroupes.
+
+Tests simules : accumulation de frames reproduite avant correction avec
+un objet introuvable, absence d'accumulation apres correction, arret des
+recherches, chargement retarde, doublons, reprise marchand, erreurs minuteur,
+regroupement des recalculs et niveau 58 conserve. Syntaxe verifiee avec Lua 5.4.
+Pas de test dans le client WoW 2.4.3 : validation en jeu necessaire.
+Le lien causal avec le Boost et le crash #132 n'est pas etabli.

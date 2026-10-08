@@ -1,6 +1,6 @@
 ## Interface: 20400
 ## Title: What's Training?
-## Version: 9.1.0
+## Version: 9.1.0-tbc-cachefix1
 ## Author: Sveng
 ## Notes: Shows you what spells are available at your class trainer
 ## SavedVariables: WT_ShowIgnoreNotice, WT_ShowLearnedNotice

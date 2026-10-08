@@ -460,10 +460,26 @@ local function applyFilter()
     end
 end
 
+local rebuildQueued = false
+local queuedLevel, queuedLevelUp
+function wt:QueueRebuild(level, isLevelUp)
+    if isLevelUp then queuedLevel, queuedLevelUp = level, true end
+    if rebuildQueued then return end
+    rebuildQueued = true
+    wt.RunNextFrame(function()
+        local level, levelUp = queuedLevel, queuedLevelUp
+        queuedLevel, queuedLevelUp = nil, nil
+        rebuildQueued = false
+        if not wt.MainFrame then return end
+        buildCategorizedData(level or UnitLevel("player"), levelUp)
+        applyFilter()
+        if wt.MainFrame:IsVisible() then wt.Update(wt.MainFrame, true) end
+    end)
+end
+
 local function rebuildIfNotCached(fromCache)
     if fromCache or wt.MainFrame == nil then return end
-    buildCategorizedData(UnitLevel("player"))
-    applyFilter()
+    wt:QueueRebuild()
 end
 
 function wt:RebuildData()
@@ -557,14 +573,13 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
     elseif event == learnedSpellEvent or event == "PLAYER_LEVEL_UP" then
         wt.InvalidateKnownSpellCache()
         local isLevelUp = event == "PLAYER_LEVEL_UP"
-        buildCategorizedData(isLevelUp and ... or UnitLevel("player"), isLevelUp)
-        applyFilter()
-        if (wt.MainFrame and wt.MainFrame:IsVisible()) then
-            wt.Update(wt.MainFrame, true)
-        end
+        wt:QueueRebuild(isLevelUp and ... or UnitLevel("player"), isLevelUp)
+    elseif event == "MERCHANT_SHOW" then
+        wt:RetryMissingItems()
     end
 end)
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent(learnedSpellEvent)
 eventFrame:RegisterEvent("PLAYER_LEVEL_UP")
+eventFrame:RegisterEvent("MERCHANT_SHOW")
